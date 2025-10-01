@@ -3,6 +3,8 @@ import StudentHome from "../Components/Home/StudentHome";
 import { UserContext } from "../Contexts/UserContext/UserContext";
 import TeacherHome from "../Components/Home/TeacherHome";
 import AdminHome from "../Components/Home/AdminHome";
+import { Link } from "react-router";
+
 
 const Home = () => {
   const { userData } = useContext(UserContext);
@@ -16,6 +18,7 @@ const Home = () => {
       ) : (
         <AdminHome />
       )}
+      <Link to={"/sing"}> sdgfsdfsfsf </Link>
     </div>
   );
 };
