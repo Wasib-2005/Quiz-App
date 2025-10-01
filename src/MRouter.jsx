@@ -3,6 +3,7 @@ import App from "./App";
 import SingInSingUp from "./Pages/SingInSingUp";
 import Home from "./Pages/Home";
 import StudentsQuiz from "./Pages/StudentsQuiz";
+import CreateQuiz from "./Components/Quiz/CreateQuiz";
 
 const Mrouther = createBrowserRouter([
   {
@@ -11,8 +12,9 @@ const Mrouther = createBrowserRouter([
     children: [
       { path: "/", element: <Home /> },
       { path: "/quiz/:quizCode", element: <StudentsQuiz /> },
+      { path: "/create-quiz", element: <CreateQuiz /> },
     ],
   },
-  { path: "/sing-in-sing-up", element: <SingInSingUp /> },
+  { path: "/sing", element: <SingInSingUp /> },
 ]);
 export default Mrouther;
