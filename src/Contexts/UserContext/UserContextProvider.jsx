@@ -23,11 +23,15 @@ const UserContextProvider = ({ children }) => {
               headers: {
                 Authorization: `Bearer ${token}`,
               },
-              withCredentials: true,
             }
           );
 
           console.log("Server response:", res.data);
+
+          // ✅ Store JWT in localStorage for later requests
+          if (res.data.token) {
+            localStorage.setItem("jwt", res.data.token);
+          }
 
           setUserData({
             ...currentUser,
@@ -39,6 +43,7 @@ const UserContextProvider = ({ children }) => {
         }
       } else {
         setUserData(null);
+        localStorage.removeItem("jwt");
       }
     });
 

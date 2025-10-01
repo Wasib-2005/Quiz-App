@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ClipboardList, Users, BarChart2, PlusCircle } from "lucide-react";
 import { UserContext } from "../../Contexts/UserContext/UserContext";
 import { LiaChalkboardTeacherSolid } from "react-icons/lia";
+import { MdDashboard } from "react-icons/md";
 
 const TeacherHome = () => {
   const navigate = useNavigate();
@@ -45,12 +46,12 @@ const TeacherHome = () => {
           </button>
 
           <button
-            onClick={() => navigate("/quizzes")}
+            onClick={() => navigate("/dashboard")}
             className="flex flex-col items-center justify-center p-5 rounded-2xl bg-white/20 hover:bg-white/30 shadow-lg transition duration-300 text-white"
           >
-            <ClipboardList size={36} />
+            <MdDashboard size={36} />
             <span className="mt-2 font-semibold text-base sm:text-lg">
-              My Quizzes
+              Dashboard
             </span>
           </button>
 
