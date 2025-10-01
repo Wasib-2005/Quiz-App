@@ -4,11 +4,14 @@ import { RouterProvider } from "react-router";
 import "./index.css";
 import Mrouther from "./MRouter.jsx";
 import UserContextProvider from "./Contexts/UserContext/UserContextProvider.jsx";
+import LoadingContextProvider from "./Contexts/LoadingContext/LoadingContextProvider.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <UserContextProvider>
-      <RouterProvider router={Mrouther} />
-    </UserContextProvider>
+    <LoadingContextProvider>
+      <UserContextProvider>
+        <RouterProvider router={Mrouther} />
+      </UserContextProvider>
+    </LoadingContextProvider>
   </StrictMode>
 );

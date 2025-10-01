@@ -15,8 +15,8 @@ const Mrouther = createBrowserRouter([
       { path: "/quiz/:quizCode", element: <StudentsQuiz /> },
       { path: "/create-quiz", element: <CreateQuiz /> },
       { path: "/dashboard", element: <Dashboard /> },
+      { path: "/sing_in_up", element: <SingInSingUp /> },
     ],
   },
-  { path: "/sing_in_up", element: <SingInSingUp /> },
 ]);
 export default Mrouther;

@@ -1,24 +1,28 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { UserContext } from "./UserContext";
 import { onAuthStateChanged } from "firebase/auth";
-
 import axios from "axios";
 import { auth } from "../../Components/LoginComponents/UserManagment/Auth";
+import { LoadingContext } from "../LoadingContext/LoadingContext";
 
 const UserContextProvider = ({ children }) => {
   const [userData, setUserData] = useState(null);
+  const { setIsLoading } = useContext(LoadingContext);
 
   useEffect(() => {
+    setIsLoading(true);
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log("Firebase user:", currentUser);
 
       if (currentUser) {
         try {
-          const token = await currentUser.getIdToken();
+          setIsLoading(true);
 
+          const token = await currentUser.getIdToken();
           const res = await axios.post(
             `${import.meta.env.VITE_API_URL}/user_validation`,
-            {}, // body (empty here, can pass data if needed)
+            {},
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -26,9 +30,6 @@ const UserContextProvider = ({ children }) => {
             }
           );
 
-          console.log("Server response:", res.data);
-
-          // ✅ Store JWT in localStorage for later requests
           if (res.data.token) {
             localStorage.setItem("jwt", res.data.token);
           }
@@ -39,16 +40,21 @@ const UserContextProvider = ({ children }) => {
             role: res.data.role,
           });
         } catch (error) {
-          console.error(error);
+          console.error("User validation failed:", error);
+          setUserData(null);
+          localStorage.removeItem("jwt");
+        } finally {
+          setIsLoading(false);
         }
       } else {
         setUserData(null);
         localStorage.removeItem("jwt");
+        setIsLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [setIsLoading]);
 
   return (
     <UserContext.Provider value={{ userData, setUserData }}>

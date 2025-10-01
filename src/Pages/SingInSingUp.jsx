@@ -17,7 +17,7 @@ const SingInSingUp = () => {
   }, [userData, navigate, location.state]);
 
   return (
-    <div className="dark:bg-gray-900 dark:text-white min-h-[calc(100vh)] grid justify-center items-center text-center">
+    <div className=" min-h-[calc(100vh)] grid justify-center items-center text-center">
       <div>
         <SignInUp />
       </div>
