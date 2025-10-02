@@ -11,7 +11,7 @@ const StudentHome = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (code.trim()) {
-      navigate(`/quiz/${code.trim()}`);
+      navigate(`/quiz/${code.trim().toLocaleLowerCase()}`);
     }
   };
 
@@ -44,7 +44,7 @@ const StudentHome = () => {
             type="text"
             placeholder="e.g. ABC123"
             className="w-full mt-2 p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 text-black"
-            value={code}
+            value={code.toUpperCase()}
             onChange={(e) => setCode(e.target.value)}
             required
           />
@@ -68,9 +68,7 @@ const StudentHome = () => {
       >
         📊 Go to Dashboard
       </button>
-      <div>
-        
-      </div>
+      <div></div>
     </div>
   );
 };

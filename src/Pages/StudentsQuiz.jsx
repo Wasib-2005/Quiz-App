@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from "react";
 import Quiz from "../Components/Quiz/Quiz";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import axios from "axios";
+import { Bounce, toast } from "react-toastify";
 
 const StudentsQuiz = () => {
+  const navigate = useNavigate();
+
   const [quizStarted, setQuizStarted] = useState(false);
   const [cheatDetected, setCheatDetected] = useState(false);
   const [activeQuestion, setActiveQuestion] = useState(0);
   const [isDone, setIsDone] = useState(false);
-  const [questionsData, setQuestionsData] = useState([]);
+  const [questionsData, setQuestionsData] = useState({});
 
   const { quizCode } = useParams();
 
@@ -16,15 +19,39 @@ const StudentsQuiz = () => {
   useEffect(() => {
     const fetchQuiz = async () => {
       try {
+        const token = localStorage.getItem("randomToken"); // ✅ get from localStorage
+
         const res = await axios.get(
           `${import.meta.env.VITE_API_URL}/quiz?quizCode=${quizCode}`,
-          { withCredentials: true }
+          {
+            headers: {
+              Authorization: `Bearer ${token}`, // ✅ send JWT token
+            },
+          }
         );
-        setQuestionsData(res.data.questions || []);
+        console.log(res.data);
+        setQuestionsData(res.data || {});
       } catch (err) {
-        console.error("Error fetching quiz:", err);
+        console.error("❌ Error fetching quiz:", err.response.data.error);
+        toast.error(err.response.data.error, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "light",
+          transition: Bounce,
+        });
+        navigate("/")
+        if (err.response?.status === 401) {
+          alert("⚠ Unauthorized! Please log in again.");
+          // optional: redirect to login page
+        }
       }
     };
+
     fetchQuiz();
   }, [quizCode]);
 
@@ -92,7 +119,7 @@ const StudentsQuiz = () => {
   }, [quizStarted]);
 
   const handleNextQuestion = () => {
-    if (activeQuestion + 1 < questionsData.length) {
+    if (activeQuestion + 1 < questionsData?.questions.length) {
       setActiveQuestion(activeQuestion + 1);
     } else {
       setQuizStarted(false);
@@ -104,29 +131,43 @@ const StudentsQuiz = () => {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       {!quizStarted && !isDone ? (
-        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-lg w-full text-center">
-          <h1 className="text-3xl font-bold mb-4">🎓 Ready for your Quiz?</h1>
-          <p className="mb-6 text-gray-600">
-            Enter fullscreen and stay focused to start.
+        <div className="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-2xl max-w-lg w-full text-center grid gap-4">
+          <h1 className="text-3xl text-gray-900 font-extrabold">
+            🎓 Ready for your Quiz?
+          </h1>
+          <p className="text-lg text-gray-700 font-medium">
+            {questionsData?.title || "Loading quiz..."}
           </p>
+          <p className="text-gray-500">{questionsData?.description}</p>
+
           <button
             onClick={startQuiz}
-            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md"
+            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105"
           >
             Start Quiz
           </button>
-          {cheatDetected && (
-            <p className="mt-4 text-red-600 font-bold">⚠ Cheating detected!</p>
-          )}
+
+          <p
+            className={`mt-3 text-sm font-bold ${
+              cheatDetected ? "text-red-600" : "text-green-600"
+            }`}
+          >
+            {cheatDetected
+              ? "⚠ Cheating detected!"
+              : "✅ Enter fullscreen and stay focused to start."}
+          </p>
         </div>
-      ) : quizStarted && activeQuestion < questionsData.length ? (
+      ) : quizStarted &&
+        questionsData?.questions?.length > 0 &&
+        activeQuestion < questionsData?.questions.length ? (
         <Quiz
-          questionData={questionsData[activeQuestion]}
           activeQuestion={activeQuestion}
           setActiveQuestion={handleNextQuestion}
+          questionData={questionsData?.questions[activeQuestion]}
+          author={questionsData?.author}
         />
       ) : isDone ? (
-        <div className="bg-green-50 p-8 rounded-3xl shadow-xl max-w-lg w-full text-center">
+        <div className="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-2xl max-w-lg w-full text-center">
           <h1 className="text-3xl font-bold text-green-600">
             ✅ Quiz Completed!
           </h1>
@@ -135,13 +176,15 @@ const StudentsQuiz = () => {
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-6 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
+            className="mt-6 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition-transform transform hover:scale-105"
           >
             Retake Quiz
           </button>
         </div>
       ) : (
-        <p>Loading...</p>
+        <div className="text-white text-lg font-semibold animate-pulse">
+          ⏳ Loading quiz...
+        </div>
       )}
     </div>
   );

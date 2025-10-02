@@ -1,7 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { PlusCircle, Trash2 } from "lucide-react";
+import { UserContext } from "../../Contexts/UserContext/UserContext";
 
 const CreateQuiz = () => {
+  const { userData } = useContext(UserContext);
+
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
   const [questions, setQuestions] = useState([
@@ -20,6 +23,12 @@ const CreateQuiz = () => {
       updatedQuestions[index].question = value;
     } else if (typeof field === "number") {
       updatedQuestions[index].options[field] = value;
+    } else if (field === "correct") {
+      updatedQuestions[index].correct = value;
+    } else if (field === "neededTime") {
+      updatedQuestions[index].neededTime = value;
+    } else if (field === "score") {
+      updatedQuestions[index].score = value;
     }
     setQuestions(updatedQuestions);
   };
@@ -30,9 +39,9 @@ const CreateQuiz = () => {
       {
         question: "",
         options: ["", "", "", ""],
-        correct: 0,
-        neededTime: 30,
-        score: 1,
+        correct: "",
+        neededTime: "",
+        score: "",
       },
     ]);
   };
@@ -44,24 +53,33 @@ const CreateQuiz = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log({
-      quizTitle,
-      quizDescription,
-      questions,
-    });
-    alert("Quiz created! (mock functionality)");
+
+    const quizObject = {
+      author: userData?.displayName || userData?.email || "Unknown",
+      title: quizTitle,
+      description: quizDescription,
+      questions: questions.map((q) => ({
+        question: q.question,
+        options: q.options,
+        correct: q.correct,
+        neededTime: q.neededTime,
+        score: q.score,
+      })),
+    };
+
+    console.log(quizObject);
+    alert("Quiz created! Check console for output.");
   };
 
   return (
     <div className="flex flex-col items-center justify-center px-4 sm:px-6">
       <div className="max-w-2xl w-full bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl shadow-2xl p-6 sm:p-10">
-        {/* Header */}
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white mb-4">
           Create a New Quiz
         </h1>
         <p className="text-sm sm:text-base text-gray-200 mb-6">
-          Fill out the form below to create your quiz. Add questions, set
-          options, and save.
+          Fill out the form below to create your quiz. Add questions, options,
+          correct answers, and scoring.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -102,7 +120,7 @@ const CreateQuiz = () => {
           <div className="space-y-6">
             {questions.map((q, idx) => (
               <div
-                key={idx}
+                key={`question${idx}`}
                 className="p-4 border border-gray-300 rounded-2xl bg-white/20 space-y-4"
               >
                 <div className="flex justify-between items-center">
@@ -120,9 +138,10 @@ const CreateQuiz = () => {
                   )}
                 </div>
 
+                {/* Question Text */}
                 {q.question && (
                   <label className="block text-white mb-2 font-medium">
-                    Enter question text
+                    Enter question text{" "}
                   </label>
                 )}
                 <textarea
@@ -131,20 +150,20 @@ const CreateQuiz = () => {
                   onChange={(e) =>
                     handleQuestionChange(idx, "question", e.target.value)
                   }
-                  className="w-full p-2 mt-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80 text-black resize-none overflow-hidden"
+                  className="w-full p-2 mt-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80 text-black resize-none"
                   rows={1}
-                  onInput={(e) => {
-                    e.target.style.height = "auto";
-                    e.target.style.height = e.target.scrollHeight + "px";
-                  }}
                   required
                 />
 
                 {/* Options */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
                   {q.options.map((opt, i) => (
-                    <div className="flex flex-col justify-end gap-2">
-                      {opt && <label>Option {i + 1}</label>}
+                    <div key={`opt${i}`} className="flex flex-col gap-2">
+                      {opt && (
+                        <label className="text-white text-sm">
+                          Option {i + 1}
+                        </label>
+                      )}
                       <input
                         key={i}
                         type="text"
@@ -160,9 +179,30 @@ const CreateQuiz = () => {
                   ))}
                 </div>
 
-                {/* Time & Score */}
-                <div className="flex flex-col sm:flex-row gap-3 mt-4">
-                  <div className="w-full sm:w-1/2">
+                {/* Correct Option */}
+                <div>
+                  {q.correct && (
+                    <label className="block text-white mb-2 font-medium">
+                      Correct Option Number
+                    </label>
+                  )}
+                  <input
+                    type="number"
+                    value={q.correct}
+                    onChange={(e) =>
+                      handleQuestionChange(idx, "correct", e.target.value)
+                    }
+                    placeholder="Correct Option (0-3)"
+                    className="w-full p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80 text-black"
+                    min={1}
+                    max={4}
+                    required
+                  />
+                </div>
+
+                {/* Needed Time & Score */}
+                <div className="flex flex-col sm:flex-row gap-3 mt-4 ">
+                  <div className="w-full sm:w-1/2 grid items-end">
                     {q.neededTime && (
                       <label className="block text-white mb-2 font-medium">
                         Time (sec)
@@ -171,18 +211,15 @@ const CreateQuiz = () => {
                     <input
                       type="number"
                       value={q.neededTime}
-                      onChange={(e) => {
-                        const updatedQuestions = [...questions];
-                        updatedQuestions[idx].neededTime = e.target.value;
-                        setQuestions(updatedQuestions);
-                      }}
+                      onChange={(e) =>
+                        handleQuestionChange(idx, "neededTime", e.target.value)
+                      }
                       placeholder="Time (sec)"
                       className="w-full p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80 text-black"
-                      style={{ MozAppearance: "textfield" }}
                     />
                   </div>
 
-                  <div className="w-full sm:w-1/2">
+                  <div className="w-full sm:w-1/2 grid items-end">
                     {q.score && (
                       <label className="block text-white mb-2 font-medium">
                         Score
@@ -191,14 +228,11 @@ const CreateQuiz = () => {
                     <input
                       type="number"
                       value={q.score}
-                      onChange={(e) => {
-                        const updatedQuestions = [...questions];
-                        updatedQuestions[idx].score = e.target.value;
-                        setQuestions(updatedQuestions);
-                      }}
+                      onChange={(e) =>
+                        handleQuestionChange(idx, "score", e.target.value)
+                      }
                       placeholder="Score"
                       className="w-full p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80 text-black"
-                      style={{ MozAppearance: "textfield" }}
                     />
                   </div>
                 </div>

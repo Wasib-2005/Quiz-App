@@ -31,7 +31,7 @@ const UserContextProvider = ({ children }) => {
           );
 
           if (res.data.token) {
-            localStorage.setItem("jwt", res.data.token);
+            localStorage.setItem("randomToken", res.data.token);
           }
 
           setUserData({
@@ -42,13 +42,13 @@ const UserContextProvider = ({ children }) => {
         } catch (error) {
           console.error("User validation failed:", error);
           setUserData(null);
-          localStorage.removeItem("jwt");
+          localStorage.removeItem("randomToken");
         } finally {
           setIsLoading(false);
         }
       } else {
         setUserData(null);
-        localStorage.removeItem("jwt");
+        localStorage.removeItem("randomToken");
         setIsLoading(false);
       }
     });
