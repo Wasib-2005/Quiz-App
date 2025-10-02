@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 
-const Quiz = ({ questionData, activeQuestion, setActiveQuestion, author }) => {
+const Quiz = ({
+  questionData,
+  activeQuestion,
+  setActiveQuestion,
+  author,
+  studentAnswers,
+  setStudentAnswers,
+}) => {
   const [selected, setSelected] = useState(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [totalTime, setTotalTime] = useState(0);
@@ -39,6 +46,15 @@ const Quiz = ({ questionData, activeQuestion, setActiveQuestion, author }) => {
     if (isLocked) return;
     setSelected(index);
     setIsLocked(true);
+    setStudentAnswers([
+      ...studentAnswers,
+      {
+        question: questionData.question,
+        questionNo: activeQuestion,
+        answer: index,
+        
+      },
+    ]);
 
     // move to next after short delay
     setTimeout(() => {

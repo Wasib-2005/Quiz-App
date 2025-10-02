@@ -12,6 +12,8 @@ const StudentsQuiz = () => {
   const [activeQuestion, setActiveQuestion] = useState(0);
   const [isDone, setIsDone] = useState(false);
   const [questionsData, setQuestionsData] = useState({});
+  const [studentAnswers, setStudentAnswers] = useState([]);
+  console.log("studentAnswers", studentAnswers);
 
   const { quizCode } = useParams();
 
@@ -44,7 +46,7 @@ const StudentsQuiz = () => {
           theme: "light",
           transition: Bounce,
         });
-        navigate("/")
+        navigate("/");
         if (err.response?.status === 401) {
           alert("⚠ Unauthorized! Please log in again.");
           // optional: redirect to login page
@@ -53,7 +55,45 @@ const StudentsQuiz = () => {
     };
 
     fetchQuiz();
-  }, [quizCode]);
+  }, [quizCode, navigate]);
+
+  // POST student answers once quiz is done
+  console.log(studentAnswers.length, questionsData?.questions?.length);
+  useEffect(() => {
+    if (isDone && studentAnswers.length === questionsData?.questions?.length) {
+      console.log("sending answare");
+      const sendAnswers = async () => {
+        try {
+          const token = localStorage.getItem("randomToken");
+          const res = await axios.post(
+            `${import.meta.env.VITE_API_URL}/submit_answers`,
+            {
+              quizCode,
+              studentAnswers,
+            },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          toast.success("✅ Answers submitted successfully!", {
+            position: "top-right",
+            autoClose: 3000,
+            transition: Bounce,
+          });
+          console.log("Submission response:", res.data);
+        } catch (err) {
+          console.error(
+            "❌ Error submitting answers:",
+            err.response?.data?.error
+          );
+          toast.error("❌ Failed to submit answers", {
+            position: "top-right",
+            autoClose: 5000,
+            transition: Bounce,
+          });
+        }
+      };
+      sendAnswers();
+    }
+  }, [isDone, quizCode, studentAnswers, questionsData]);
 
   const requestFullScreen = () => {
     const elem = document.documentElement;
@@ -165,6 +205,8 @@ const StudentsQuiz = () => {
           setActiveQuestion={handleNextQuestion}
           questionData={questionsData?.questions[activeQuestion]}
           author={questionsData?.author}
+          studentAnswers={studentAnswers}
+          setStudentAnswers={setStudentAnswers}
         />
       ) : isDone ? (
         <div className="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-2xl max-w-lg w-full text-center">
