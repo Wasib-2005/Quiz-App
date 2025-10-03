@@ -42,7 +42,7 @@ const Quiz = ({
     return () => clearInterval(timer);
   }, [totalTime, activeQuestion, setActiveQuestion]);
 
-  const handleSelection = (index) => {
+  const handleSelection = (index, option) => {
     if (isLocked) return;
     setSelected(index);
     setIsLocked(true);
@@ -52,7 +52,7 @@ const Quiz = ({
         question: questionData.question,
         questionNo: activeQuestion,
         answer: index,
-        
+        option: option,
       },
     ]);
 
@@ -96,7 +96,7 @@ const Quiz = ({
         {questionData?.options?.map((option, i) => (
           <li
             key={i}
-            onClick={() => handleSelection(i)}
+            onClick={() => handleSelection(i, option)}
             className={`relative px-5 sm:px-6 py-4 sm:py-5 rounded-xl font-medium flex items-center gap-3 sm:gap-4 border transition-all duration-300 shadow-sm
               ${
                 selected === i

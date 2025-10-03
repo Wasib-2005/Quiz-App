@@ -1,29 +1,69 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { UserContext } from "../../Contexts/UserContext/UserContext";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Award, BarChart2, LogOut } from "lucide-react"; // adjust path
+import { BookOpen, Award, BarChart2, LogOut } from "lucide-react";
 import { SingOut } from "../LoginComponents/UserManagment/SingOut";
 import { auth } from "../LoginComponents/UserManagment/Auth";
 import { CiWarning } from "react-icons/ci";
+import axios from "axios";
 
 const StudentDashboard = () => {
   const { userData } = useContext(UserContext);
   const navigate = useNavigate();
+  const [quizzesTaken, setQuizzesTaken] = useState(0);
+  const [violations, setViolations] = useState(0);
+
+  useEffect(() => {
+    const fetchQuizzesTaken = async () => {
+      try {
+        const res = await axios.get(
+          `${import.meta.env.VITE_API_URL}/api/quiz/taken`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("randomToken")}`,
+            },
+          }
+        );
+        setQuizzesTaken(res.data.count || 0);
+      } catch (err) {
+        console.error("Error fetching quizzes taken:", err);
+      }
+    };
+    const totalViolations = async () => {
+      try {
+        const res = await axios.get(
+          `${import.meta.env.VITE_API_URL}/api/violation/count`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("randomToken")}`,
+            },
+          }
+        );
+        setViolations(res.data.count || 0);
+      } catch (err) {
+        console.error("Error fetching quizzes taken:", err);
+      }
+    };
+
+    totalViolations();
+
+    fetchQuizzesTaken();
+  }, []);
 
   const stats = [
     {
       title: "Quizzes Taken",
-      value: 12,
+      value: quizzesTaken,
       icon: <BookOpen size={24} className="text-blue-400" />,
     },
     {
       title: "Average Score",
-      value: "85%",
+      value: "85%", // Placeholder
       icon: <Award size={24} className="text-yellow-400" />,
     },
     {
       title: "Progress",
-      value: "75%",
+      value: "75%", // Placeholder
       icon: <BarChart2 size={24} className="text-green-400" />,
     },
   ];
@@ -38,7 +78,11 @@ const StudentDashboard = () => {
   };
 
   const cards = [
-    { title: "Violations", route: "/violation", icon: <CiWarning size={28} /> },
+    {
+      title: `Violations (${violations})`,
+      route: "/violation",
+      icon: <CiWarning size={28} />,
+    },
     {
       title: "Progress Report",
       route: "/progress",
@@ -53,7 +97,6 @@ const StudentDashboard = () => {
 
   return (
     <div className="w-full max-w-6xl mx-auto p-6 space-y-8">
-      {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold text-white">
           Hello,{" "}
@@ -64,7 +107,6 @@ const StudentDashboard = () => {
         <p className="text-gray-200 mt-2">Here’s your learning dashboard</p>
       </div>
 
-      {/* Stats Section */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {stats.map((stat, idx) => (
           <div
@@ -80,7 +122,6 @@ const StudentDashboard = () => {
         ))}
       </div>
 
-      {/* Quick Action Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {cards.map((card, idx) => (
           <div

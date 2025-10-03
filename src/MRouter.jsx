@@ -2,11 +2,13 @@ import { createBrowserRouter } from "react-router";
 import { lazy, Suspense } from "react";
 import App from "./App";
 import Loading from "./Components/Loading";
+import Violations from "./Pages/Violations";
+import AnswersOne from "./Pages/AnswersOne";
 
 const SingInSingUp = lazy(() => import("./Pages/SingInSingUp"));
 const Home = lazy(() => import("./Pages/Home"));
 const StudentsQuiz = lazy(() => import("./Pages/StudentsQuiz"));
-const CreateQuiz = lazy(() => import("./Components/Quiz/CreateQuiz"));
+const CreateQuiz = lazy(() => import("./Pages/CreateQuiz"));
 const Dashboard = lazy(() => import("./Pages/Dashboard"));
 const Progress = lazy(() => import("./Pages/Progress"));
 
@@ -32,10 +34,18 @@ const Mrouther = createBrowserRouter([
         ),
       },
       {
-        path: "/create-quiz",
+        path: "/create_quiz",
+        element: (
+          <Suspense fallback={<div>Loading Quiz...</div>}>
+            <CreateQuiz />
+          </Suspense>
+        ),
+      },
+      {
+        path: "/violation",
         element: (
           <Suspense fallback={<Loading />}>
-            <CreateQuiz />
+            <Violations />
           </Suspense>
         ),
       },
@@ -63,6 +73,14 @@ const Mrouther = createBrowserRouter([
           </Suspense>
         ),
       },
+      {
+        path: "/answers/:quizCode",
+        element: (
+          <Suspense fallback={<Loading />}>
+            <AnswersOne />
+          </Suspense>
+        ),
+      }, // NEW
     ],
   },
 ]);

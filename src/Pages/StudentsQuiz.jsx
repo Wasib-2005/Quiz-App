@@ -3,286 +3,221 @@ import React, {
   useEffect,
   useContext,
   useCallback,
-  useRef,
 } from "react";
 import Quiz from "../Components/Quiz/Quiz";
 import { useNavigate, useParams } from "react-router";
 import axios from "axios";
 import { Bounce, toast } from "react-toastify";
 import { LoadingContext } from "../Contexts/LoadingContext/LoadingContext";
-import { SingOut } from "../Components/LoginComponents/UserManagment/SingOut";
+import { UserContext } from "../Contexts/UserContext/UserContext";
 import { formatTime } from "../Utility/formatTime";
-import { IoMdTimer } from "react-icons/io";
 
 const StudentsQuiz = () => {
   const navigate = useNavigate();
-  const { withLoading } = useContext(LoadingContext);
-
-  const [quizStarted, setQuizStarted] = useState(false);
-  const [cheatDetected, setCheatDetected] = useState(false);
-  const [activeQuestion, setActiveQuestion] = useState(0);
-  const [isDone, setIsDone] = useState(false);
-
-  const [quizMeta, setQuizMeta] = useState(null);
-  const [questionsData, setQuestionsData] = useState({});
-  const [studentAnswers, setStudentAnswers] = useState([]);
+  const { setIsLoading } = useContext(LoadingContext);
+  const { userData } = useContext(UserContext);
 
   const { quizCode } = useParams();
 
-  const violationRef = useRef([]);
+  const [quizMeta, setQuizMeta] = useState(null);
+  const [questionsData, setQuestionsData] = useState([]);
+  const [activeQuestion, setActiveQuestion] = useState(0);
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [studentAnswers, setStudentAnswers] = useState([]);
+  const [error, setError] = useState("");
 
-  /** CHECK INTERNET CONNECTION */
-  const checkConnection = () => navigator.onLine;
+  const VIOLATION_STORAGE_KEY = "quizViolations";
 
-  /** RECORD VIOLATION */
+  /** Check internet connection */
+  const isOnline = () => navigator.onLine;
+
+  /** Record violation */
   const recordViolation = useCallback(
-    async (reason) => {
-      const violationData = {
+    (reason) => {
+      const violation = {
         quizCode,
         reason,
         timestamp: new Date().toISOString(),
+        email: userData?.email || "",
       };
 
-      if (!checkConnection()) {
-        // Save locally if no net
-        let violations =
-          JSON.parse(localStorage.getItem("violations")) || [];
-        violations.push(violationData);
-        localStorage.setItem("violations", JSON.stringify(violations));
-      } else {
-        try {
-          const token = localStorage.getItem("randomToken");
-          await axios.post(
-            `${import.meta.env.VITE_API_URL}/violation`,
-            violationData,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-        } catch (err) {
-          console.error("Violation report failed", err);
-          // Save locally if post fails
-          let violations =
-            JSON.parse(localStorage.getItem("violations")) || [];
-          violations.push(violationData);
-          localStorage.setItem("violations", JSON.stringify(violations));
-        }
-      }
+      let violations =
+        JSON.parse(localStorage.getItem(VIOLATION_STORAGE_KEY)) || [];
+      violations.push(violation);
+      localStorage.setItem(VIOLATION_STORAGE_KEY, JSON.stringify(violations));
 
-      setCheatDetected(true);
-      setQuizStarted(false);
-      setActiveQuestion(0);
-      setIsDone(false);
-      setStudentAnswers([]);
-      localStorage.removeItem("inProgressAnswers");
-
-      toast.error(`⚠ Violation detected: ${reason}`, {
-        position: "top-right",
-        autoClose: 5000,
+      toast.error(`🚨 Violation detected: ${reason}. Quiz reset!`, {
         transition: Bounce,
       });
+
+      resetQuiz();
     },
-    [quizCode]
+    [quizCode, userData?.email]
   );
 
-  /** SYNC LOCAL VIOLATIONS WHEN ONLINE */
-  const syncViolations = useCallback(async () => {
-    const violations = JSON.parse(localStorage.getItem("violations"));
-    if (violations?.length && checkConnection()) {
-      try {
-        const token = localStorage.getItem("randomToken");
+  /** Send violations to backend */
+  const sendViolations = useCallback(async () => {
+    const violations =
+      JSON.parse(localStorage.getItem(VIOLATION_STORAGE_KEY)) || [];
+    if (!violations.length) return;
+
+    try {
+      const token = localStorage.getItem("randomToken");
+      for (let v of violations) {
         await axios.post(
-          `${import.meta.env.VITE_API_URL}/violation/batch`,
-          { violations },
+          `${import.meta.env.VITE_API_URL}/api/violation`,
+          v,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        localStorage.removeItem("violations");
-      } catch (err) {
-        console.error("Violation batch upload failed", err);
       }
+      localStorage.removeItem(VIOLATION_STORAGE_KEY);
+    } catch (err) {
+      console.error("Error sending violations:", err);
     }
   }, []);
 
-  /** FETCH QUIZ META */
-  useEffect(() => {
-    const fetchQuizMeta = async () => {
-      if (!checkConnection()) {
-        recordViolation("No internet connection before quiz start");
-        return;
-      }
-
-      await withLoading(async () => {
-        try {
-          const token = localStorage.getItem("randomToken");
-          if (!token) {
-            SingOut();
-            navigate("/");
-            return;
-          }
-          const res = await axios.get(
-            `${import.meta.env.VITE_API_URL}/quizTest?quizCode=${quizCode}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          setQuizMeta(res.data);
-        } catch (err) {
-          toast.error(err.response?.data?.error || "❌ Failed to load quiz", {
-            position: "top-right",
-            autoClose: 4000,
-            transition: Bounce,
-          });
-          navigate("/");
-        }
-      });
-    };
-    fetchQuizMeta();
-  }, [quizCode, navigate, withLoading, recordViolation]);
-
-  /** FETCH QUIZ QUESTIONS */
-  const fetchQuizQuestions = useCallback(async () => {
-    if (!checkConnection()) {
-      recordViolation("No internet during quiz start");
-      return;
-    }
-
-    await withLoading(async () => {
-      try {
-        const token = localStorage.getItem("randomToken");
-        const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/quiz?quizCode=${quizCode}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        setQuestionsData(res.data || {});
-      } catch (err) {
-        toast.error(err.response?.data?.error || "❌ Failed to fetch quiz", {
-          position: "top-right",
-          autoClose: 4000,
-          transition: Bounce,
-        });
-        navigate("/");
-      }
-    });
-  }, [quizCode, navigate, withLoading, recordViolation]);
-
-  /** SUBMIT ANSWERS */
-  const submitAnswers = useCallback(
-    async (quizCode, studentAnswers) => {
-      if (!checkConnection()) {
-        recordViolation("No internet during answer submission");
-        return;
-      }
-
-      await withLoading(async () => {
-        try {
-          const token = localStorage.getItem("randomToken");
-          await axios.post(
-            `${import.meta.env.VITE_API_URL}/submit_answers`,
-            { quizCode, studentAnswers },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          toast.success("✅ Answers submitted!", {
-            position: "top-right",
-            autoClose: 3000,
-            transition: Bounce,
-          });
-          localStorage.removeItem("pendingAnswers");
-          localStorage.removeItem("inProgressAnswers");
-        } catch (err) {
-          console.error(err);
-          toast.error("❌ Failed to submit answers", {
-            position: "top-right",
-            autoClose: 4000,
-            transition: Bounce,
-          });
-        }
-      });
-    },
-    [withLoading, recordViolation]
-  );
-
-  /** AUTO SUBMIT WHEN DONE */
-  useEffect(() => {
-    if (isDone && studentAnswers.length === questionsData?.questions?.length) {
-      submitAnswers(quizCode, studentAnswers);
-    }
-  }, [isDone, quizCode, studentAnswers, questionsData, submitAnswers]);
-
-  /** FULLSCREEN HELPERS */
-  const requestFullScreen = async () => {
-    const elem = document.documentElement;
-    if (elem.requestFullscreen) {
-      try {
-        await elem.requestFullscreen();
-      } catch (err) {
-        console.error("Fullscreen request failed:", err);
-      }
-    }
+  /** Reset quiz state */
+  const resetQuiz = () => {
+    setQuizStarted(false);
+    setActiveQuestion(0);
+    setStudentAnswers([]);
+    document.exitFullscreen().catch(() => {});
   };
 
-  const exitFullScreen = () => {
-    if (document.exitFullscreen) {
-      document.exitFullscreen().catch((err) => console.error(err));
-    }
-  };
+  /** Fetch quiz data */
+  const fetchQuiz = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem("randomToken");
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/quiz`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { quizCode },
+        }
+      );
 
-  /** START QUIZ */
-  const startQuiz = async () => {
-    if (!checkConnection()) {
-      recordViolation("No internet before quiz start");
-      return;
-    }
+      setQuizMeta({
+        title: res.data.title,
+        description: res.data.description,
+        totalQuestions: res.data.questions.length,
+        totalNeededTime: res.data.questions.reduce(
+          (a, q) => a + Number(q.neededTime || 0),
+          0
+        ),
+      });
 
-    await requestFullScreen();
+      setQuestionsData(res.data.questions);
+    } catch (err) {
+      console.log(err);
+      const message =
+        err.response?.data?.error ||
+        "❌ Failed to load quiz. Please try again.";
+      toast.error(message);
+      setError(message);
+      setIsLoading(false);
+      navigate(-1);
+    }
+    setIsLoading(false);
+  }, [quizCode, navigate, setIsLoading]);
+
+  useEffect(() => {
+    fetchQuiz();
+    sendViolations();
+  }, [fetchQuiz, sendViolations]);
+
+  const handleNextQuestion = useCallback(() => {
+    setActiveQuestion((prev) => prev + 1);
+  }, []);
+
+  const submitAnswers = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem("randomToken");
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/quiz/submit_answers`,
+        { quizCode, studentAnswers },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      await sendViolations();
+
+      navigate(`/answers/${quizCode}`);
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.error || "❌ Failed to submit answers",
+        { transition: Bounce }
+      );
+    }
+    setIsLoading(false);
+  }, [studentAnswers, quizCode, navigate, sendViolations, setIsLoading]);
+
+  useEffect(() => {
+    if (activeQuestion >= questionsData.length && quizStarted) {
+      setQuizStarted(false);
+      submitAnswers();
+    }
+  }, [activeQuestion, questionsData, quizStarted, submitAnswers]);
+
+  const startQuiz = () => {
     setQuizStarted(true);
-    setCheatDetected(false);
-    await fetchQuizQuestions();
+    document.documentElement.requestFullscreen().catch(() => {
+      toast.warn("⚠️ Fullscreen mode failed.");
+    });
   };
 
-  /** ANTI-CHEATING EVENTS */
+  /** Anti-cheat detection */
   useEffect(() => {
+    if (!quizStarted) return;
+
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement && quizStarted) {
-        recordViolation("Left fullscreen");
+      if (!document.fullscreenElement) {
+        recordViolation("Exited fullscreen mode");
       }
     };
 
     const handleVisibilityChange = () => {
-      if (document.hidden && quizStarted) {
+      if (document.visibilityState === "hidden") {
         recordViolation("Changed tab or minimized");
       }
     };
 
     const handleWindowBlur = () => {
-      if (quizStarted) {
-        recordViolation("Switched windows");
-      }
+      recordViolation("Switched desktop window or tab");
     };
 
     const handleOffline = () => {
-      if (quizStarted) {
-        recordViolation("Internet disconnected during quiz");
-      }
+      recordViolation("Internet disconnected during quiz");
     };
 
-    const handleBeforeUnload = () => {
-      if (quizStarted) {
-        recordViolation("Browser closed or reload during quiz");
-      }
+    const handleBeforeUnload = (e) => {
+      recordViolation("Browser closed or refreshed");
+      e.preventDefault();
+      e.returnValue = "";
     };
 
     window.addEventListener("offline", handleOffline);
     window.addEventListener("beforeunload", handleBeforeUnload);
-    document.addEventListener(
-      "fullscreenchange",
-      handleFullscreenChange
-    );
-    document.addEventListener(
-      "visibilitychange",
-      handleVisibilityChange
-    );
     window.addEventListener("blur", handleWindowBlur);
-    window.addEventListener("online", syncViolations);
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    /** Extra aggressive detection: focus polling */
+    let lastFocus = document.hasFocus();
+    const focusInterval = setInterval(() => {
+      if (!document.hasFocus() && lastFocus) {
+        lastFocus = false;
+        recordViolation("Lost focus to another window");
+      } else if (document.hasFocus()) {
+        lastFocus = true;
+      }
+    }, 100);
 
     return () => {
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("blur", handleWindowBlur);
       document.removeEventListener(
         "fullscreenchange",
         handleFullscreenChange
@@ -291,96 +226,53 @@ const StudentsQuiz = () => {
         "visibilitychange",
         handleVisibilityChange
       );
-      window.removeEventListener("blur", handleWindowBlur);
-      window.removeEventListener("online", syncViolations);
+      clearInterval(focusInterval);
     };
-  }, [quizStarted, recordViolation, syncViolations]);
+  }, [quizStarted, recordViolation]);
 
-  /** NEXT QUESTION */
-  const handleNextQuestion = useCallback(() => {
-    if (activeQuestion + 1 < questionsData?.questions.length) {
-      setActiveQuestion(activeQuestion + 1);
-    } else {
-      setQuizStarted(false);
-      setIsDone(true);
-      exitFullScreen();
-    }
-  }, [activeQuestion, questionsData?.questions]);
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="bg-red-100 text-red-800 p-6 rounded-xl shadow-md">
+          <h1 className="text-xl font-bold">⚠️ Error</h1>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex items-center justify-center">
-      {!quizStarted && !isDone ? (
-        <div className="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-2xl max-w-lg w-full text-center space-y-4">
-          <h1 className="text-3xl font-extrabold text-gray-900">
-            📚 {quizMeta?.title || "Loading quiz..."}
+    <div className="flex items-center justify-center min-h-screen">
+      {!quizStarted ? (
+        <div className="bg-white p-8 rounded-3xl shadow-lg text-center">
+          <h1 className="text-3xl font-bold">
+            {quizMeta?.title || "Loading..."}
           </h1>
-          <p className="text-lg text-gray-700 font-medium">
-            {quizMeta?.description ||
-              "Get ready to sharpen your skills and test your knowledge!"}
-          </p>
-
-          <div className="flex flex-col md:flex-row justify-around items-center text-gray-800 ">
-            <p className="font-medium">
-              📝 <span className="font-semibold">Total Questions:</span>{" "}
-              {quizMeta?.totalQuestions || "-"}
-            </p>
-            <p className="flex items-center font-medium">
-              <IoMdTimer className="mr-1 text-indigo-600" />
-              <span className="font-semibold">Time:</span>{" "}
-              {formatTime(quizMeta?.totalNeededTime)}
-            </p>
-          </div>
-
-          <div>
-            <button
-              onClick={startQuiz}
-              className="mt-4 px-6 py-3 w-[200px] bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-lg transition-transform transform hover:scale-105"
-            >
-              Start Quiz
-            </button>
-          </div>
-
-          <p
-            className={`mt-3 text-sm font-bold ${
-              cheatDetected ? "text-red-600" : "text-green-600"
-            }`}
+          <p className="mt-2 text-gray-600">{quizMeta?.description}</p>
+          <p>Total Questions: {quizMeta?.totalQuestions}</p>
+          <p>Time: {formatTime(quizMeta?.totalNeededTime)}</p>
+          <button
+            onClick={startQuiz}
+            className="bg-indigo-600 text-white px-4 py-2 mt-4 rounded hover:bg-indigo-700"
+            disabled={!quizMeta}
           >
-            {cheatDetected
-              ? "⚠ Violation detected — quiz terminated!"
-              : "✨ Enter fullscreen and focus for best results."}
-          </p>
+            Start Quiz
+          </button>
         </div>
-      ) : quizStarted &&
-        questionsData?.questions?.length > 0 &&
-        activeQuestion < questionsData?.questions.length ? (
+      ) : questionsData.length > 0 &&
+        activeQuestion < questionsData.length ? (
         <Quiz
+          questionData={questionsData[activeQuestion]}
           activeQuestion={activeQuestion}
           setActiveQuestion={handleNextQuestion}
-          questionData={questionsData?.questions[activeQuestion]}
-          author={questionsData?.author}
           studentAnswers={studentAnswers}
           setStudentAnswers={setStudentAnswers}
         />
-      ) : isDone ? (
-        <div className="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-2xl max-w-lg w-full text-center space-y-4">
-          <h1 className="text-3xl font-bold text-green-600">🎉 Well Done!</h1>
-          <p className="text-gray-700">
-            You’ve completed the quiz — keep up the great work! 🌟
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-lg transition-transform transform hover:scale-105"
-          >
-            🔄 Try Again
-          </button>
-        </div>
       ) : (
-        <div className="text-white text-lg font-semibold animate-pulse">
-          ⏳ Preparing your study session...
-        </div>
+        <p>Loading...</p>
       )}
     </div>
   );
 };
 
-export default React.memo(StudentsQuiz);
+export default StudentsQuiz;

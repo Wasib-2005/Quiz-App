@@ -1,6 +1,6 @@
 import React, { useState, useContext } from "react";
 import { PlusCircle, Trash2 } from "lucide-react";
-import { UserContext } from "../../Contexts/UserContext/UserContext";
+import { UserContext } from "../Contexts/UserContext/UserContext";
 
 const CreateQuiz = () => {
   const { userData } = useContext(UserContext);
@@ -16,6 +16,9 @@ const CreateQuiz = () => {
       score: "",
     },
   ]);
+  const [date, setDate] = useState("");
+  const [dateLine, setDateLine] = useState("");
+  const [errors, setErrors] = useState({});
 
   const handleQuestionChange = (index, field, value) => {
     const updatedQuestions = [...questions];
@@ -31,6 +34,18 @@ const CreateQuiz = () => {
       updatedQuestions[index].score = value;
     }
     setQuestions(updatedQuestions);
+  };
+
+  // New number validation handler
+  const handleNumberChange = (index, field, value) => {
+    const updatedErrors = { ...errors };
+    if (value === "" || /^\d+$/.test(value)) {
+      updatedErrors[`${index}-${field}`] = "";
+      handleQuestionChange(index, field, value);
+    } else {
+      updatedErrors[`${index}-${field}`] = "Number only";
+    }
+    setErrors(updatedErrors);
   };
 
   const addQuestion = () => {
@@ -53,7 +68,6 @@ const CreateQuiz = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
     const quizObject = {
       author: userData?.displayName || userData?.email || "Unknown",
       title: quizTitle,
@@ -65,8 +79,9 @@ const CreateQuiz = () => {
         neededTime: q.neededTime,
         score: q.score,
       })),
+      date,
+      dateLine,
     };
-
     console.log(quizObject);
     alert("Quiz created! Check console for output.");
   };
@@ -79,7 +94,7 @@ const CreateQuiz = () => {
         </h1>
         <p className="text-sm sm:text-base text-gray-200 mb-6">
           Fill out the form below to create your quiz. Add questions, options,
-          correct answers, and scoring.
+          correct answers, scoring, and set quiz dates.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -115,6 +130,35 @@ const CreateQuiz = () => {
               }}
             />
           </div>
+          <div className="flex justify-between">
+            {/* Quiz Start Date */}
+            <div className="w-[45%]">
+              <label className="block text-white mb-2 font-medium">
+                Quiz Start Date
+              </label>
+              <input
+                type="datetime-local"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full p-2 px-5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80 text-black"
+                required
+              />
+            </div>
+
+            {/* Quiz Deadline */}
+            <div className="w-[45%]">
+              <label className="block text-white mb-2 font-medium">
+                Quiz Deadline
+              </label>
+              <input
+                type="datetime-local"
+                value={dateLine}
+                onChange={(e) => setDateLine(e.target.value)}
+                className="w-full p-2 px-5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80 text-black"
+                required
+              />
+            </div>
+          </div>
 
           {/* Questions */}
           <div className="space-y-6">
@@ -141,7 +185,7 @@ const CreateQuiz = () => {
                 {/* Question Text */}
                 {q.question && (
                   <label className="block text-white mb-2 font-medium">
-                    Enter question text{" "}
+                    Enter question text
                   </label>
                 )}
                 <textarea
@@ -187,21 +231,24 @@ const CreateQuiz = () => {
                     </label>
                   )}
                   <input
-                    type="number"
+                    type="text"
                     value={q.correct}
                     onChange={(e) =>
-                      handleQuestionChange(idx, "correct", e.target.value)
+                      handleNumberChange(idx, "correct", e.target.value)
                     }
                     placeholder="Correct Option (0-3)"
                     className="w-full p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80 text-black"
-                    min={1}
-                    max={4}
                     required
                   />
+                  {errors[`${idx}-correct`] && (
+                    <p className="text-red-500 text-sm">
+                      {errors[`${idx}-correct`]}
+                    </p>
+                  )}
                 </div>
 
                 {/* Needed Time & Score */}
-                <div className="flex flex-col sm:flex-row gap-3 mt-4 ">
+                <div className="flex flex-col sm:flex-row gap-3 mt-4">
                   <div className="w-full sm:w-1/2 grid items-end">
                     {q.neededTime && (
                       <label className="block text-white mb-2 font-medium">
@@ -209,14 +256,19 @@ const CreateQuiz = () => {
                       </label>
                     )}
                     <input
-                      type="number"
+                      type="text"
                       value={q.neededTime}
                       onChange={(e) =>
-                        handleQuestionChange(idx, "neededTime", e.target.value)
+                        handleNumberChange(idx, "neededTime", e.target.value)
                       }
                       placeholder="Time (sec)"
                       className="w-full p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80 text-black"
                     />
+                    {errors[`${idx}-neededTime`] && (
+                      <p className="text-red-500 text-sm">
+                        {errors[`${idx}-neededTime`]}
+                      </p>
+                    )}
                   </div>
 
                   <div className="w-full sm:w-1/2 grid items-end">
@@ -226,14 +278,19 @@ const CreateQuiz = () => {
                       </label>
                     )}
                     <input
-                      type="number"
+                      type="text"
                       value={q.score}
                       onChange={(e) =>
-                        handleQuestionChange(idx, "score", e.target.value)
+                        handleNumberChange(idx, "score", e.target.value)
                       }
                       placeholder="Score"
                       className="w-full p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80 text-black"
                     />
+                    {errors[`${idx}-score`] && (
+                      <p className="text-red-500 text-sm">
+                        {errors[`${idx}-score`]}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

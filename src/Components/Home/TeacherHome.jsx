@@ -36,7 +36,7 @@ const TeacherHome = () => {
         {/* Quick Actions */}
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button
-            onClick={() => navigate("/create-quiz")}
+            onClick={() => navigate("/create_quiz")}
             className="flex flex-col items-center justify-center p-5 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-lg transition duration-300 text-white"
           >
             <PlusCircle size={36} />
