@@ -1,9 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useContext,
-  useCallback,
-} from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import Quiz from "../Components/Quiz/Quiz";
 import { useNavigate, useParams } from "react-router";
 import axios from "axios";
@@ -64,11 +59,9 @@ const StudentsQuiz = () => {
     try {
       const token = localStorage.getItem("randomToken");
       for (let v of violations) {
-        await axios.post(
-          `${import.meta.env.VITE_API_URL}/api/violation`,
-          v,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await axios.post(`${import.meta.env.VITE_API_URL}/api/violation`, v, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
       }
       localStorage.removeItem(VIOLATION_STORAGE_KEY);
     } catch (err) {
@@ -89,13 +82,10 @@ const StudentsQuiz = () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem("randomToken");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/quiz`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { quizCode },
-        }
-      );
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/quiz`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { quizCode },
+      });
 
       setQuizMeta({
         title: res.data.title,
@@ -124,7 +114,7 @@ const StudentsQuiz = () => {
   useEffect(() => {
     fetchQuiz();
     sendViolations();
-  }, [fetchQuiz, sendViolations,startQuiz]);
+  }, [fetchQuiz, sendViolations, quizStarted]);
 
   const handleNextQuestion = useCallback(() => {
     setActiveQuestion((prev) => prev + 1);
@@ -144,10 +134,9 @@ const StudentsQuiz = () => {
 
       navigate(`/answers/${quizCode}`);
     } catch (err) {
-      toast.error(
-        err?.response?.data?.error || "❌ Failed to submit answers",
-        { transition: Bounce }
-      );
+      toast.error(err?.response?.data?.error || "❌ Failed to submit answers", {
+        transition: Bounce,
+      });
     }
     setIsLoading(false);
   }, [studentAnswers, quizCode, navigate, sendViolations, setIsLoading]);
@@ -218,14 +207,8 @@ const StudentsQuiz = () => {
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("beforeunload", handleBeforeUnload);
       window.removeEventListener("blur", handleWindowBlur);
-      document.removeEventListener(
-        "fullscreenchange",
-        handleFullscreenChange
-      );
-      document.removeEventListener(
-        "visibilitychange",
-        handleVisibilityChange
-      );
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       clearInterval(focusInterval);
     };
   }, [quizStarted, recordViolation]);
@@ -259,8 +242,7 @@ const StudentsQuiz = () => {
             Start Quiz
           </button>
         </div>
-      ) : questionsData.length > 0 &&
-        activeQuestion < questionsData.length ? (
+      ) : questionsData.length > 0 && activeQuestion < questionsData.length ? (
         <Quiz
           questionData={questionsData[activeQuestion]}
           activeQuestion={activeQuestion}
