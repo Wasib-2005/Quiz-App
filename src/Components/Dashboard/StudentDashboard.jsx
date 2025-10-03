@@ -1,9 +1,10 @@
 import React, { useContext } from "react";
 import { UserContext } from "../../Contexts/UserContext/UserContext";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Award, BarChart2, Settings, LogOut } from "lucide-react"; // adjust path
+import { BookOpen, Award, BarChart2, LogOut } from "lucide-react"; // adjust path
 import { SingOut } from "../LoginComponents/UserManagment/SingOut";
 import { auth } from "../LoginComponents/UserManagment/Auth";
+import { CiWarning } from "react-icons/ci";
 
 const StudentDashboard = () => {
   const { userData } = useContext(UserContext);
@@ -37,7 +38,7 @@ const StudentDashboard = () => {
   };
 
   const cards = [
-    { title: "View Results", route: "/results", icon: <Award size={28} /> },
+    { title: "Violations", route: "/violation", icon: <CiWarning size={28} /> },
     {
       title: "Progress Report",
       route: "/progress",

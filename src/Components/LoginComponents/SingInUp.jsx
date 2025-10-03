@@ -17,15 +17,16 @@ const SignInUp = () => {
   const [isSignUpState, setIsSignUpState] = useState(false);
   const [openModal, setOpenModal] = useState(false);
 
-  const { setIsLoading } = useContext(LoadingContext);
+  const { withLoading } = useContext(LoadingContext); // ✅ use withLoading
 
   return (
     <div className="">
       <form
         onSubmit={async (e) => {
-          setIsLoading(true);
-          await userManageViaEmail(e, setUserData, isSignUpState);
-          setIsLoading(false);
+          e.preventDefault();
+          await withLoading(async () => {
+            await userManageViaEmail(e, setUserData, isSignUpState);
+          });
         }}
         className="w-[380px] bg-white/10 backdrop-blur-lg border border-white/30 rounded-3xl p-8 shadow-2xl grid gap-6"
       >
@@ -116,11 +117,11 @@ const SignInUp = () => {
           <div className="flex gap-4 justify-center">
             <button
               type="button"
-              onClick={async () => {
-                setIsLoading(true);
-                await googleProvider();
-                setIsLoading(false);
-              }}
+              onClick={async () =>
+                await withLoading(async () => {
+                  await googleProvider();
+                })
+              }
               className="btn btn-circle btn-outline text-white"
             >
               <IoLogoGoogle size={22} />

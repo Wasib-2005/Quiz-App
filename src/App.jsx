@@ -1,25 +1,16 @@
 import { Outlet } from "react-router";
-import { SpinnerDotted } from "spinners-react";
 import { useContext } from "react";
 import { LoadingContext } from "./Contexts/LoadingContext/LoadingContext";
 import { ToastContainer } from "react-toastify";
+import Loading from "./Components/Loading";
 
 const App = () => {
   const { isLoading } = useContext(LoadingContext);
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen text-black">
       {/* Spinner Overlay */}
-      {isLoading && (
-        <div className="absolute inset-0 flex justify-center items-center z-50 bg-black/50">
-          <SpinnerDotted
-            size={100}
-            thickness={150}
-            speed={100}
-            color="#00ffff"
-          />
-        </div>
-      )}
+      {isLoading && <Loading />}
 
       {/* Main App Content */}
       <ToastContainer limit={5} />
