@@ -124,7 +124,7 @@ const StudentsQuiz = () => {
   useEffect(() => {
     fetchQuiz();
     sendViolations();
-  }, [fetchQuiz, sendViolations]);
+  }, [fetchQuiz, sendViolations,startQuiz]);
 
   const handleNextQuestion = useCallback(() => {
     setActiveQuestion((prev) => prev + 1);
