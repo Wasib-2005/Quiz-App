@@ -96,10 +96,10 @@ const Quiz = ({
         {questionData?.options?.map((option, i) => (
           <li
             key={i}
-            onClick={() => handleSelection(i, option)}
+            onClick={() => handleSelection(i + 1, option)}
             className={`relative px-5 sm:px-6 py-4 sm:py-5 rounded-xl font-medium flex items-center gap-3 sm:gap-4 border transition-all duration-300 shadow-sm
               ${
-                selected === i
+                selected === i + 1
                   ? "bg-indigo-600 text-white border-indigo-600 shadow-md scale-[1.02]"
                   : "hover:bg-indigo-50 hover:border-indigo-300 text-gray-800 bg-white"
               } ${

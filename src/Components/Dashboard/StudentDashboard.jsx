@@ -10,8 +10,11 @@ import axios from "axios";
 const StudentDashboard = () => {
   const { userData } = useContext(UserContext);
   const navigate = useNavigate();
+
   const [quizzesTaken, setQuizzesTaken] = useState(0);
   const [violations, setViolations] = useState(0);
+  const [getScore, setGetScore] = useState(null);
+  const [totalScore, setTotalScore] = useState(null);
 
   useEffect(() => {
     const fetchQuizzesTaken = async () => {
@@ -29,7 +32,8 @@ const StudentDashboard = () => {
         console.error("Error fetching quizzes taken:", err);
       }
     };
-    const totalViolations = async () => {
+
+    const fetchViolations = async () => {
       try {
         const res = await axios.get(
           `${import.meta.env.VITE_API_URL}/api/violation/count`,
@@ -41,13 +45,31 @@ const StudentDashboard = () => {
         );
         setViolations(res.data.count || 0);
       } catch (err) {
-        console.error("Error fetching quizzes taken:", err);
+        console.error("Error fetching violations:", err);
       }
     };
 
-    totalViolations();
+    const fetchTotalScore = async () => {
+      try {
+        const res = await axios.get(
+          `${import.meta.env.VITE_API_URL}/api/answers/total_score`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("randomToken")}`,
+            },
+          }
+        );
+        setGetScore(res.data.getScore ?? null);
+        setTotalScore(res.data.totalScore ?? null);
+      } catch (err) {
+        console.error("Error fetching total score:", err);
+        setGetScore(null);
+      }
+    };
 
     fetchQuizzesTaken();
+    fetchViolations();
+    fetchTotalScore();
   }, []);
 
   const stats = [
@@ -57,14 +79,12 @@ const StudentDashboard = () => {
       icon: <BookOpen size={24} className="text-blue-400" />,
     },
     {
-      title: "Average Score",
-      value: "85%", // Placeholder
+      title: "Quiz Score",
+      value:
+        getScore !== null
+          ? `${getScore}/${totalScore}(${Math.trunc(getScore / totalScore*100)})%`
+          : "Coming soon",
       icon: <Award size={24} className="text-yellow-400" />,
-    },
-    {
-      title: "Progress",
-      value: "75%", // Placeholder
-      icon: <BarChart2 size={24} className="text-green-400" />,
     },
   ];
 

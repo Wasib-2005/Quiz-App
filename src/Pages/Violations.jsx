@@ -33,20 +33,22 @@ const Violations = () => {
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-        <IoWarningOutline size={28} className="text-red-500" />  Violations
+    <div className="max-w-6xl mx-auto p-4 sm:p-6">
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <IoWarningOutline size={28} className="text-red-500" />
+        Violations
       </h1>
 
       {loading ? (
         <div className="text-center text-gray-500">Loading violations...</div>
       ) : violations.length === 0 ? (
-        <div className="text-center text-green-600 font-semibold">
+        <div className="text-center text-green-600 font-semibold text-lg">
           🎉 No violations detected!
         </div>
       ) : (
         <div className="overflow-x-auto bg-white shadow rounded-lg">
-          <table className="min-w-full divide-y divide-gray-200">
+          {/* Table for large screens */}
+          <table className="hidden sm:table min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
@@ -76,6 +78,27 @@ const Violations = () => {
               ))}
             </tbody>
           </table>
+
+          {/* Card view for mobile */}
+          <div className="sm:hidden p-2 space-y-4">
+            {violations.map((violation) => (
+              <div
+                key={violation._id}
+                className="border border-gray-200 rounded-xl p-4 shadow-sm bg-gray-50"
+              >
+                <p className="text-sm font-semibold text-red-600 mb-1">
+                  {violation.reason}
+                </p>
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">Quiz Code:</span>{" "}
+                  {violation.quizCode}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {format(new Date(violation.timestamp), "PPpp")}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

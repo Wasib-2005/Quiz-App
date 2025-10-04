@@ -8,7 +8,7 @@ import AnswersOne from "./Pages/AnswersOne";
 const SingInSingUp = lazy(() => import("./Pages/SingInSingUp"));
 const Home = lazy(() => import("./Pages/Home"));
 const StudentsQuiz = lazy(() => import("./Pages/StudentsQuiz"));
-const CreateQuiz = lazy(() => import("./Pages/CreateQuiz"));
+const QuizForm = lazy(() => import("./Pages/QuizForm"));
 const Dashboard = lazy(() => import("./Pages/Dashboard"));
 const Progress = lazy(() => import("./Pages/Progress"));
 
@@ -37,7 +37,15 @@ const Mrouther = createBrowserRouter([
         path: "/create_quiz",
         element: (
           <Suspense fallback={<div>Loading Quiz...</div>}>
-            <CreateQuiz />
+            <QuizForm />
+          </Suspense>
+        ),
+      },
+      {
+        path: "/update_quiz:updateID",
+        element: (
+          <Suspense fallback={<div>Loading Quiz...</div>}>
+            <QuizForm />
           </Suspense>
         ),
       },

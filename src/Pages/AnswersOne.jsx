@@ -2,7 +2,6 @@ import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import { UserContext } from "../Contexts/UserContext/UserContext";
 import { LoadingContext } from "../Contexts/LoadingContext/LoadingContext";
-import { Bounce } from "react-toastify";
 import { useParams } from "react-router";
 
 const AnswersOne = () => {
@@ -13,28 +12,28 @@ const AnswersOne = () => {
   const [error, setError] = useState("");
 
   const fetchAnswers = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-        const token = localStorage.getItem("randomToken");
-        const res = await axios.get(
-          `${
-            import.meta.env.VITE_API_URL
-          }/api/answers/answers?quizCode=${quizCode}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        setAnswersData(res.data);
-     
+      const token = localStorage.getItem("randomToken");
+      const res = await axios.get(
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/answers/answers?quizCode=${quizCode}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setAnswersData(res.data);
     } catch (err) {
+      console.error(err);
       setError(err.response?.data?.error || "Failed to fetch answers");
     }
-    setIsLoading(false)
+    setIsLoading(false);
   };
 
   useEffect(() => {
     fetchAnswers();
-  }, [quizCode,]);
+  }, [quizCode]);
 
   if (error) {
     return (
@@ -46,8 +45,8 @@ const AnswersOne = () => {
     return <div className="text-center mt-10">Loading answers...</div>;
   }
 
-  const totalQuestions = answersData.answers.length || 1;
-  const correctAnswers = answersData.answers.filter((a) => a.isCorrect).length;
+  const totalQuestions = answersData.answers?.length || 1;
+  const correctAnswers = answersData.answers?.filter((a) => a.isCorrect).length;
   const scorePercent = (correctAnswers / totalQuestions) * 100;
 
   const getResultMessage = () => {
@@ -74,7 +73,10 @@ const AnswersOne = () => {
           Correct Answers: {correctAnswers}
         </p>
         <p className="font-semibold text-lg">
-          Total Score: {answersData.totalScore || 0}
+         Your score: {answersData.getScore ?? 0}
+        </p>
+        <p className="font-semibold text-lg">
+          Total Score: {answersData.totalScore ?? 0}
         </p>
       </div>
 
@@ -91,7 +93,7 @@ const AnswersOne = () => {
               <strong>Q{idx + 1}:</strong> {ans.question}
             </p>
             <p>
-              <strong>Answer:</strong> {ans.option}
+              <strong>Answer:</strong> {ans.option || ans.answer}
             </p>
             <p>
               <strong>Score:</strong> {ans.score}
