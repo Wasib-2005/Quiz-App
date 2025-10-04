@@ -20,41 +20,42 @@ const StudentsQuiz = () => {
   const [studentAnswers, setStudentAnswers] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [quizReloadFlag, setQuizReloadFlag] = useState(0); // New state for reload
 
   const VIOLATION_STORAGE_KEY = "quizViolations";
 
   /** Send violations to backend */
-  const sendViolations = useCallback(async (ban = false) => {
-    const violations =
-      JSON.parse(localStorage.getItem(VIOLATION_STORAGE_KEY)) || [];
-    if (!violations.length) return;
+  const sendViolations = useCallback(
+    async (ban = false) => {
+      const violations =
+        JSON.parse(localStorage.getItem(VIOLATION_STORAGE_KEY)) || [];
+      if (!violations.length) return;
 
-    try {
-      const token = localStorage.getItem("randomToken");
-      for (const v of violations) {
-        await axios.post(
-          `${import.meta.env.VITE_API_URL}/api/violation`,
-          v,
-          { headers: { Authorization: `Bearer ${token}` } }
+      try {
+        const token = localStorage.getItem("randomToken");
+
+        await Promise.all(
+          violations.map((v) =>
+            axios.post(
+              `${import.meta.env.VITE_API_URL}/api/violation`,
+              v,
+              { headers: { Authorization: `Bearer ${token}` } }
+            )
+          )
         );
+
+        localStorage.removeItem(VIOLATION_STORAGE_KEY);
+
+        if (ban) {
+          toast.error("🚫 You have been banned from this quiz due to violations.");
+          navigate(-1);
+        }
+      } catch (err) {
+        console.error("Error sending violations:", err);
       }
-
-      const violationRes = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/violation/count`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (violationRes.data.banned) {
-        toast.error("🚫 You have been banned from this quiz due to violations.");
-        navigate(-1);
-      }
-
-      localStorage.removeItem(VIOLATION_STORAGE_KEY);
-      localStorage.removeItem("violationCount");
-    } catch (err) {
-      console.error("Error sending violations:", err);
-    }
-  }, [navigate]);
+    },
+    [navigate]
+  );
 
   /** Record violation locally */
   const recordViolation = useCallback(
@@ -72,19 +73,21 @@ const StudentsQuiz = () => {
       violations.push(violation);
       localStorage.setItem(VIOLATION_STORAGE_KEY, JSON.stringify(violations));
 
-      let violationCount = Number(localStorage.getItem("violationCount")) || 0;
-      violationCount++;
-      localStorage.setItem("violationCount", violationCount);
+      let violationCount = violations.length;
 
       toast.error(`🚨 Violation: ${reason}. Quiz reset!`, {
         transition: Bounce,
       });
 
+      resetQuiz();
+
       if (violationCount >= 5) {
         sendViolations(true);
+      } else {
+        sendViolations(false);
       }
 
-      resetQuiz();
+      setQuizReloadFlag((prev) => prev + 1); // Trigger quiz reload
     },
     [quizCode, userData?.email, quizMeta?.title, sendViolations]
   );
@@ -94,6 +97,7 @@ const StudentsQuiz = () => {
     setActiveQuestion(0);
     setStudentAnswers([]);
     document.exitFullscreen?.().catch(() => {});
+    setQuizReloadFlag((prev) => prev + 1); // Trigger quiz reload
   };
 
   /** Fetch quiz data */
@@ -101,13 +105,10 @@ const StudentsQuiz = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("randomToken");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/quiz`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { quizCode },
-        }
-      );
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/quiz`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { quizCode },
+      });
 
       const { title, description, questions } = res.data;
 
@@ -125,8 +126,7 @@ const StudentsQuiz = () => {
     } catch (err) {
       console.error(err);
       const message =
-        err.response?.data?.error ||
-        "❌ Failed to load quiz. Please try again.";
+        err.response?.data?.error || "❌ Failed to load quiz. Please try again.";
       setError(message);
       toast.error(message);
       navigate(-1);
@@ -136,10 +136,10 @@ const StudentsQuiz = () => {
     }
   }, [quizCode, navigate, setIsLoading]);
 
+  /** Re-fetch quiz when reload flag changes */
   useEffect(() => {
     fetchQuiz();
-    sendViolations();
-  }, [fetchQuiz, sendViolations]);
+  }, [fetchQuiz, quizReloadFlag]);
 
   const handleNextQuestion = useCallback(() => {
     setActiveQuestion((prev) => prev + 1);
@@ -170,8 +170,9 @@ const StudentsQuiz = () => {
     if (activeQuestion >= questionsData.length && quizStarted) {
       setQuizStarted(false);
       submitAnswers();
+      sendViolations();
     }
-  }, [activeQuestion, questionsData, quizStarted, submitAnswers]);
+  }, [activeQuestion, questionsData, quizStarted, submitAnswers, sendViolations]);
 
   const startQuiz = () => {
     setQuizStarted(true);
