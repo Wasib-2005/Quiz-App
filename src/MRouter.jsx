@@ -42,7 +42,7 @@ const Mrouther = createBrowserRouter([
         ),
       },
       {
-        path: "/update_quiz:updateID",
+        path: "/update_quiz/:updateID",
         element: (
           <Suspense fallback={<div>Loading Quiz...</div>}>
             <QuizForm />

@@ -1,13 +1,13 @@
-import { useContext, useEffect, useState } from "react";
+import {  useEffect, useState } from "react";
 import { UserContext } from "./UserContext";
 import { onAuthStateChanged } from "firebase/auth";
 import axios from "axios";
 import { auth } from "../../Components/LoginComponents/UserManagment/Auth";
-import { LoadingContext } from "../LoadingContext/LoadingContext";
+
 
 const UserContextProvider = ({ children }) => {
   const [userData, setUserData] = useState(null);
-  const { setIsLoading } = useContext(LoadingContext);
+
 
   useEffect(() => {
     const initUser = async () => {
@@ -15,7 +15,7 @@ const UserContextProvider = ({ children }) => {
         console.log("Firebase user:", currentUser);
 
         if (currentUser) {
-          setIsLoading(true);
+        
           try {
             const token = await currentUser.getIdToken();
             const res = await axios.post(
@@ -42,7 +42,7 @@ const UserContextProvider = ({ children }) => {
             setUserData(null);
             localStorage.removeItem("randomToken");
           }
-          setIsLoading(false);
+       
         } else {
           setUserData(null);
           localStorage.removeItem("randomToken");
@@ -56,7 +56,7 @@ const UserContextProvider = ({ children }) => {
     return () => {
       unsubscribe && unsubscribe.then((fn) => fn());
     };
-  }, [setIsLoading]);
+  }, []);
 
   return (
     <UserContext.Provider value={{ userData, setUserData }}>

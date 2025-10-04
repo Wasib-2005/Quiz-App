@@ -1,13 +1,15 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { PlusCircle, Trash2 } from "lucide-react";
-import { UserContext } from "../Contexts/UserContext/UserContext";
 import axios from "axios";
 import { Bounce, toast } from "react-toastify";
-import { formatDateTimeLocal } from "../Utility/formatDateTimeLocal";
 import { useParams } from "react-router";
+import { UserContext } from "../Contexts/UserContext/UserContext";
+import { LoadingContext } from "../Contexts/LoadingContext/LoadingContext";
+import { formatDateTimeLocal } from "../Utility/formatDateTimeLocal";
 
 const QuizForm = () => {
   const { userData } = useContext(UserContext);
+  const { setIsLoading } = useContext(LoadingContext);
   const { updateID } = useParams();
 
   const [quizData, setQuizData] = useState({
@@ -29,63 +31,86 @@ const QuizForm = () => {
 
   const [errors, setErrors] = useState({});
 
+  // 🧠 Fetch existing quiz if updateID is present
+  useEffect(() => {
+    const fetchQuiz = async () => {
+      if (!updateID) return;
+      setIsLoading(true);
+      try {
+        const res = await axios.get(
+          `${import.meta.env.VITE_API_URL}/api/quiz/teacher/${updateID}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("randomToken")}`,
+            },
+          }
+        );
+
+        const data = res.data;
+        if (data) {
+          setQuizData({
+            title: data.title || "",
+            author: data.author || userData?.displayName || "",
+            description: data.description || "",
+            date: data.date || "",
+            dateLine: data.dateLine || "",
+            questions:
+              Array.isArray(data.questions) && data.questions.length > 0
+                ? data.questions
+                : [
+                    {
+                      question: "",
+                      options: ["", "", "", ""],
+                      correct: "",
+                      neededTime: "",
+                      score: "",
+                    },
+                  ],
+          });
+        }
+      } catch (error) {
+        toast.error("❌ Failed to load quiz", { transition: Bounce });
+        console.error("Error fetching quiz:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchQuiz();
+  }, [updateID, userData, setIsLoading]);
+
+  // 🧩 Handle field updates
   const handleFieldChange = (field, value) => {
     setQuizData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleQuestionChange = (index, field, value) => {
-    const updatedQuestions = [...quizData.questions];
-    if (field === "question") updatedQuestions[index].question = value;
-    else if (typeof field === "number")
-      updatedQuestions[index].options[field] = value;
-    else if (field === "correct") updatedQuestions[index].correct = value;
-    else if (field === "neededTime") updatedQuestions[index].neededTime = value;
-    else if (field === "score") updatedQuestions[index].score = value;
-    setQuizData((prev) => ({ ...prev, questions: updatedQuestions }));
+    const updated = [...quizData.questions];
+    if (typeof field === "number") updated[index].options[field] = value;
+    else updated[index][field] = value;
+    setQuizData((prev) => ({ ...prev, questions: updated }));
   };
 
+  // 🔢 Handle numeric input validation
   const handleNumberChange = (index, field, value, min, max) => {
     const updatedErrors = { ...errors };
+    const isNumeric = /^\d*$/.test(value);
 
-    // Check if empty or not a number
-    if (value === "" || /^\d+$/.test(value)) {
-      let numericValue = Number(value);
-
-      if (value !== "") {
-        if (min !== undefined && max !== undefined) {
-          if (numericValue < min || numericValue > max) {
-            updatedErrors[
-              `${index}-${field}`
-            ] = `Number must be between ${min} and ${max}`;
-          } else {
-            updatedErrors[`${index}-${field}`] = "";
-            handleQuestionChange(index, field, value);
-          }
-        } else if (min !== undefined) {
-          if (numericValue < min) {
-            updatedErrors[`${index}-${field}`] = `Number must be ≥ ${min}`;
-          } else {
-            updatedErrors[`${index}-${field}`] = "";
-            handleQuestionChange(index, field, value);
-          }
-        } else if (max !== undefined) {
-          if (numericValue > max) {
-            updatedErrors[`${index}-${field}`] = `Number must be ≤ ${max}`;
-          } else {
-            updatedErrors[`${index}-${field}`] = "";
-            handleQuestionChange(index, field, value);
-          }
-        } else {
-          // No min/max defined
-          updatedErrors[`${index}-${field}`] = "";
-          handleQuestionChange(index, field, value);
-        }
+    if (!isNumeric) {
+      updatedErrors[`${index}-${field}`] = "Numbers only";
+    } else if (value !== "") {
+      const num = Number(value);
+      if (min && num < min) {
+        updatedErrors[`${index}-${field}`] = `Minimum is ${min}`;
+      } else if (max && num > max) {
+        updatedErrors[`${index}-${field}`] = `Maximum is ${max}`;
       } else {
         updatedErrors[`${index}-${field}`] = "";
         handleQuestionChange(index, field, value);
       }
     } else {
-      updatedErrors[`${index}-${field}`] = "Number only";
+      updatedErrors[`${index}-${field}`] = "";
+      handleQuestionChange(index, field, value);
     }
 
     setErrors(updatedErrors);
@@ -114,37 +139,60 @@ const QuizForm = () => {
     }));
   };
 
+  // 🚀 Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    setIsLoading(true);
     try {
       const token = localStorage.getItem("randomToken");
-      const res = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/quiz/create`,
-        { quiz: quizData },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      toast.success("✅ Quiz created successfully!", { transition: Bounce });
-      console.log("Created quiz:", res.data.quiz);
+      if (updateID) {
+        await axios.put(
+          `${import.meta.env.VITE_API_URL}/api/quiz/update/${updateID}`,
+          quizData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        toast.success("✅ Quiz updated successfully!", { transition: Bounce });
+      } else {
+        await axios.post(
+          `${import.meta.env.VITE_API_URL}/api/quiz/create`,
+          { quiz: quizData },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        toast.success("✅ Quiz created successfully!", { transition: Bounce });
+        setQuizData({
+          title: "",
+          author: userData?.displayName || "",
+          description: "",
+          date: "",
+          dateLine: "",
+          questions: [
+            {
+              question: "",
+              options: ["", "", "", ""],
+              correct: "",
+              neededTime: "",
+              score: "",
+            },
+          ],
+        });
+      }
     } catch (err) {
-      toast.error(err.response?.data?.error || "Failed to create quiz", {
+      console.error("Error saving quiz:", err);
+      toast.error(err.response?.data?.error || "❌ Failed to save quiz", {
         transition: Bounce,
       });
-      console.error("Quiz creation error:", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  // 🧱 Render
   return (
-    <div className="flex flex-col items-center justify-center px-4 sm:px-6">
+    <div className="flex flex-col items-center justify-center px-4 sm:px-6 py-8">
       <div className="max-w-2xl w-full bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl shadow-2xl p-6 sm:p-10">
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white mb-4">
-          Create a New Quiz
+          {updateID ? "Update Quiz" : "Create a New Quiz"}
         </h1>
-        <p className="text-sm sm:text-base text-gray-200 mb-6">
-          Fill out the form below to create your quiz. Add questions, options,
-          correct answers, scoring, and set quiz dates.
-        </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Author */}
@@ -156,13 +204,12 @@ const QuizForm = () => {
               type="text"
               value={quizData.author}
               onChange={(e) => handleFieldChange("author", e.target.value)}
-              placeholder="Enter quiz author name"
-              className="w-full p-3 rounded-lg border border-gray-300 bg-white/80 text-black"
+              className="w-full p-3 rounded-lg border bg-white/80 text-black"
               required
             />
           </div>
 
-          {/* Quiz Title */}
+          {/* Title */}
           <div>
             <label className="block text-white mb-2 font-medium">
               Quiz Title
@@ -171,13 +218,12 @@ const QuizForm = () => {
               type="text"
               value={quizData.title}
               onChange={(e) => handleFieldChange("title", e.target.value)}
-              placeholder="Enter quiz title"
-              className="w-full p-3 rounded-lg border border-gray-300 bg-white/80 text-black"
+              className="w-full p-3 rounded-lg border bg-white/80 text-black"
               required
             />
           </div>
 
-          {/* Quiz Description */}
+          {/* Description */}
           <div>
             <label className="block text-white mb-2 font-medium">
               Description
@@ -185,15 +231,14 @@ const QuizForm = () => {
             <textarea
               value={quizData.description}
               onChange={(e) => handleFieldChange("description", e.target.value)}
-              placeholder="Optional description..."
-              className="w-full p-3 rounded-lg border border-gray-300 bg-white/80 text-black resize-none overflow-hidden"
               rows={3}
+              className="w-full p-3 rounded-lg border bg-white/80 text-black"
             />
           </div>
 
           {/* Dates */}
-          <div className="flex justify-between">
-            <div className="w-[45%]">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
               <label className="block text-white mb-2 font-medium">
                 Quiz Start Date
               </label>
@@ -201,12 +246,11 @@ const QuizForm = () => {
                 type="datetime-local"
                 value={quizData.date || formatDateTimeLocal(new Date())}
                 onChange={(e) => handleFieldChange("date", e.target.value)}
-                className="w-full p-2 px-5 rounded-lg border border-gray-300 bg-white/80 text-black"
+                className="w-full p-2 rounded-lg border bg-white/80 text-black"
                 required
               />
             </div>
-
-            <div className="w-[45%]">
+            <div className="flex-1">
               <label className="block text-white mb-2 font-medium">
                 Quiz Deadline
               </label>
@@ -214,7 +258,7 @@ const QuizForm = () => {
                 type="datetime-local"
                 value={quizData.dateLine}
                 onChange={(e) => handleFieldChange("dateLine", e.target.value)}
-                className="w-full p-2 px-5 rounded-lg border border-gray-300 bg-white/80 text-black"
+                className="w-full p-2 rounded-lg border bg-white/80 text-black"
                 required
               />
             </div>
@@ -224,8 +268,8 @@ const QuizForm = () => {
           <div className="space-y-6">
             {quizData.questions.map((q, idx) => (
               <div
-                key={`question${idx}`}
-                className="p-4 border border-gray-300 rounded-2xl bg-white/20 space-y-4"
+                key={idx}
+                className="p-4 border rounded-2xl bg-white/20 space-y-4"
               >
                 <div className="flex justify-between items-center">
                   <h2 className="font-semibold text-white">
@@ -235,47 +279,39 @@ const QuizForm = () => {
                     <button
                       type="button"
                       onClick={() => removeQuestion(idx)}
-                      className="text-red-500 hover:text-red-600"
+                      className="text-red-400 hover:text-red-600"
                     >
-                      <Trash2 />
+                      <Trash2 size={18} />
                     </button>
                   )}
                 </div>
 
-                {/* Question Text */}
-                {q.question && (
-                  <label className="block text-white mb-2 font-medium">
-                    Enter question text
-                  </label>
-                )}
                 <textarea
-                  placeholder="Enter question text"
                   value={q.question}
                   onChange={(e) =>
                     handleQuestionChange(idx, "question", e.target.value)
                   }
-                  className="w-full p-2 mt-2 rounded-lg border border-gray-300 bg-white/80 text-black"
-                  rows={1}
+                  placeholder="Enter question"
+                  className="w-full p-2 rounded-lg border bg-white/80 text-black"
+                  rows={2}
                   required
                 />
 
                 {/* Options */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {q.options.map((opt, i) => (
-                    <div key={`opt${i}`} className="flex flex-col gap-2">
-                      {opt && (
-                        <label className="text-white text-sm">
-                          Option {i + 1}
-                        </label>
-                      )}
+                    <div key={i}>
+                      <label className="text-white text-sm">
+                        Option {i + 1}
+                      </label>
                       <input
                         type="text"
-                        placeholder={`Option ${i + 1}`}
                         value={opt}
                         onChange={(e) =>
                           handleQuestionChange(idx, i, e.target.value)
                         }
-                        className="w-full p-2 rounded-lg border border-gray-300 bg-white/80 text-black h-10"
+                        placeholder={`Option ${i + 1}`}
+                        className="w-full p-2 rounded-lg border bg-white/80 text-black"
                         required
                       />
                     </div>
@@ -283,19 +319,14 @@ const QuizForm = () => {
                 </div>
 
                 {/* Correct Option */}
-                {q.correct && (
-                  <label className="block text-white mb-2 font-medium">
-                    Correct Option Number
-                  </label>
-                )}
                 <input
                   type="text"
                   value={q.correct}
                   onChange={(e) =>
                     handleNumberChange(idx, "correct", e.target.value, 1, 4)
                   }
-                  placeholder="Correct Option (1-4)"
-                  className="w-full p-2 rounded-lg border border-gray-300 bg-white/80 text-black"
+                  placeholder="Correct Option (1–4)"
+                  className="w-full p-2 rounded-lg border bg-white/80 text-black"
                   required
                 />
                 {errors[`${idx}-correct`] && (
@@ -304,51 +335,26 @@ const QuizForm = () => {
                   </p>
                 )}
 
-                {/* Needed Time & Score */}
-                <div className="flex flex-col sm:flex-row gap-3 mt-4">
-                  <div className="w-full sm:w-1/2 grid items-end">
-                    {q.neededTime && (
-                      <label className="block text-white mb-2 font-medium">
-                        Time (sec)
-                      </label>
-                    )}
-                    <input
-                      type="text"
-                      value={q.neededTime}
-                      onChange={(e) =>
-                        handleNumberChange(idx, "neededTime", e.target.value)
-                      }
-                      placeholder="Time (sec)"
-                      className="w-full p-2 rounded-lg border border-gray-300 bg-white/80 text-black"
-                    />
-                    {errors[`${idx}-neededTime`] && (
-                      <p className="text-red-500 text-sm">
-                        {errors[`${idx}-neededTime`]}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="w-full sm:w-1/2 grid items-end">
-                    {q.score && (
-                      <label className="block text-white mb-2 font-medium">
-                        Score
-                      </label>
-                    )}
-                    <input
-                      type="text"
-                      value={q.score}
-                      onChange={(e) =>
-                        handleNumberChange(idx, "score", e.target.value)
-                      }
-                      placeholder="Score"
-                      className="w-full p-2 rounded-lg border border-gray-300 bg-white/80 text-black"
-                    />
-                    {errors[`${idx}-score`] && (
-                      <p className="text-red-500 text-sm">
-                        {errors[`${idx}-score`]}
-                      </p>
-                    )}
-                  </div>
+                {/* Time & Score */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    value={q.neededTime}
+                    onChange={(e) =>
+                      handleNumberChange(idx, "neededTime", e.target.value)
+                    }
+                    placeholder="Time (sec)"
+                    className="w-full p-2 rounded-lg border bg-white/80 text-black"
+                  />
+                  <input
+                    type="text"
+                    value={q.score}
+                    onChange={(e) =>
+                      handleNumberChange(idx, "score", e.target.value)
+                    }
+                    placeholder="Score"
+                    className="w-full p-2 rounded-lg border bg-white/80 text-black"
+                  />
                 </div>
               </div>
             ))}
@@ -358,18 +364,17 @@ const QuizForm = () => {
           <button
             type="button"
             onClick={addQuestion}
-            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
+            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
           >
-            <PlusCircle />
-            Add Question
+            <PlusCircle size={18} /> Add Question
           </button>
 
-          {/* Save Quiz */}
+          {/* Save Button */}
           <button
             type="submit"
             className="w-full py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg"
           >
-            Save Quiz
+            {updateID ? "Update Quiz" : "Save Quiz"}
           </button>
         </form>
       </div>

@@ -6,9 +6,12 @@ import { SingOut } from "../LoginComponents/UserManagment/SingOut";
 import { auth } from "../LoginComponents/UserManagment/Auth";
 import { CiWarning } from "react-icons/ci";
 import axios from "axios";
+import { LoadingContext } from "../../Contexts/LoadingContext/LoadingContext";
 
 const StudentDashboard = () => {
   const { userData } = useContext(UserContext);
+  const { setIsLoading } = useContext(LoadingContext);
+
   const navigate = useNavigate();
 
   const [quizzesTaken, setQuizzesTaken] = useState(0);
@@ -17,60 +20,45 @@ const StudentDashboard = () => {
   const [totalScore, setTotalScore] = useState(null);
 
   useEffect(() => {
-    const fetchQuizzesTaken = async () => {
+    const fetchAll = async () => {
+      setIsLoading(true);
       try {
-        const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/quiz/taken`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("randomToken")}`,
-            },
-          }
-        );
-        setQuizzesTaken(res.data.count || 0);
-      } catch (err) {
-        console.error("Error fetching quizzes taken:", err);
-      }
-    };
+        const token = localStorage.getItem("randomToken");
 
-    const fetchViolations = async () => {
-      try {
-        const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/violation/count`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("randomToken")}`,
-            },
-          }
-        );
-        setViolations(res.data.count || 0);
-      } catch (err) {
-        console.error("Error fetching violations:", err);
-      }
-    };
+        const [quizRes, violationRes, scoreRes] = await Promise.all([
+          axios.get(`${import.meta.env.VITE_API_URL}/api/quiz/taken`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          axios.get(`${import.meta.env.VITE_API_URL}/api/violation`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          axios.get(`${import.meta.env.VITE_API_URL}/api/answers/total_score`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
 
-    const fetchTotalScore = async () => {
-      try {
-        const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/answers/total_score`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("randomToken")}`,
-            },
-          }
+        // Quizzes taken
+        setQuizzesTaken(quizRes.data.count || 0);
+
+        // Violations count (calculated from violations collection)
+        const userViolations = violationRes.data.filter(
+          (v) => v.email === userData?.email
         );
-        setGetScore(res.data.getScore ?? null);
-        setTotalScore(res.data.totalScore ?? null);
+        setViolations(userViolations.length);
+
+        // Scores
+        setGetScore(scoreRes.data.getScore ?? null);
+        setTotalScore(scoreRes.data.totalScore ?? null);
       } catch (err) {
-        console.error("Error fetching total score:", err);
+        console.error("Error fetching dashboard data:", err);
         setGetScore(null);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    fetchQuizzesTaken();
-    fetchViolations();
-    fetchTotalScore();
-  }, []);
+    fetchAll();
+  }, [setIsLoading, userData?.email]);
 
   const stats = [
     {
@@ -81,9 +69,16 @@ const StudentDashboard = () => {
     {
       title: "Quiz Score",
       value:
-        getScore !== null
-          ? `${getScore}/${totalScore}(${Math.trunc(getScore / totalScore*100)})%`
+        getScore !== null && totalScore
+          ? `${getScore}/${totalScore} (${Math.trunc(
+              (getScore / totalScore) * 100
+            )}%)`
           : "Coming soon",
+      icon: <Award size={24} className="text-yellow-400" />,
+    },
+    {
+      title: "Total Score",
+      value: "Coming soon",
       icon: <Award size={24} className="text-yellow-400" />,
     },
   ];

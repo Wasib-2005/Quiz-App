@@ -11,7 +11,6 @@ const StudentsQuiz = () => {
   const navigate = useNavigate();
   const { setIsLoading } = useContext(LoadingContext);
   const { userData } = useContext(UserContext);
-
   const { quizCode } = useParams();
 
   const [quizMeta, setQuizMeta] = useState(null);
@@ -20,13 +19,44 @@ const StudentsQuiz = () => {
   const [quizStarted, setQuizStarted] = useState(false);
   const [studentAnswers, setStudentAnswers] = useState([]);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const VIOLATION_STORAGE_KEY = "quizViolations";
 
-  /** Check internet connection */
-  const isOnline = () => navigator.onLine;
+  /** Send violations to backend */
+  const sendViolations = useCallback(async (ban = false) => {
+    const violations =
+      JSON.parse(localStorage.getItem(VIOLATION_STORAGE_KEY)) || [];
+    if (!violations.length) return;
 
-  /** Record violation */
+    try {
+      const token = localStorage.getItem("randomToken");
+      for (const v of violations) {
+        await axios.post(
+          `${import.meta.env.VITE_API_URL}/api/violation`,
+          v,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+
+      const violationRes = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/violation/count`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (violationRes.data.banned) {
+        toast.error("🚫 You have been banned from this quiz due to violations.");
+        navigate(-1);
+      }
+
+      localStorage.removeItem(VIOLATION_STORAGE_KEY);
+      localStorage.removeItem("violationCount");
+    } catch (err) {
+      console.error("Error sending violations:", err);
+    }
+  }, [navigate]);
+
+  /** Record violation locally */
   const recordViolation = useCallback(
     (reason) => {
       const violation = {
@@ -34,87 +64,82 @@ const StudentsQuiz = () => {
         reason,
         timestamp: new Date().toISOString(),
         email: userData?.email || "",
+        title: quizMeta?.title || "Unknown Quiz",
       };
 
-      let violations =
+      const violations =
         JSON.parse(localStorage.getItem(VIOLATION_STORAGE_KEY)) || [];
       violations.push(violation);
       localStorage.setItem(VIOLATION_STORAGE_KEY, JSON.stringify(violations));
 
-      toast.error(`🚨 Violation detected: ${reason}. Quiz reset!`, {
+      let violationCount = Number(localStorage.getItem("violationCount")) || 0;
+      violationCount++;
+      localStorage.setItem("violationCount", violationCount);
+
+      toast.error(`🚨 Violation: ${reason}. Quiz reset!`, {
         transition: Bounce,
       });
 
+      if (violationCount >= 5) {
+        sendViolations(true);
+      }
+
       resetQuiz();
     },
-    [quizCode, userData?.email]
+    [quizCode, userData?.email, quizMeta?.title, sendViolations]
   );
 
-  /** Send violations to backend */
-  const sendViolations = useCallback(async () => {
-    const violations =
-      JSON.parse(localStorage.getItem(VIOLATION_STORAGE_KEY)) || [];
-    if (!violations.length) return;
-
-    try {
-      const token = localStorage.getItem("randomToken");
-      for (let v of violations) {
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/violation`, v, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      }
-      localStorage.removeItem(VIOLATION_STORAGE_KEY);
-    } catch (err) {
-      console.error("Error sending violations:", err);
-    }
-  }, []);
-
-  /** Reset quiz state */
   const resetQuiz = () => {
     setQuizStarted(false);
     setActiveQuestion(0);
     setStudentAnswers([]);
-    document.exitFullscreen().catch(() => {});
+    document.exitFullscreen?.().catch(() => {});
   };
 
   /** Fetch quiz data */
   const fetchQuiz = useCallback(async () => {
-    setIsLoading(true);
     try {
+      setLoading(true);
       const token = localStorage.getItem("randomToken");
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/quiz`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { quizCode },
-      });
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/quiz`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { quizCode },
+        }
+      );
+
+      const { title, description, questions } = res.data;
 
       setQuizMeta({
-        title: res.data.title,
-        description: res.data.description,
-        totalQuestions: res.data.questions.length,
-        totalNeededTime: res.data.questions.reduce(
+        title,
+        description,
+        totalQuestions: questions.length,
+        totalNeededTime: questions.reduce(
           (a, q) => a + Number(q.neededTime || 0),
           0
         ),
       });
 
-      setQuestionsData(res.data.questions);
+      setQuestionsData(questions);
     } catch (err) {
-      console.log(err);
+      console.error(err);
       const message =
         err.response?.data?.error ||
         "❌ Failed to load quiz. Please try again.";
-      toast.error(message);
       setError(message);
-      setIsLoading(false);
+      toast.error(message);
       navigate(-1);
+    } finally {
+      setLoading(false);
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, [quizCode, navigate, setIsLoading]);
 
   useEffect(() => {
     fetchQuiz();
     sendViolations();
-  }, [fetchQuiz, sendViolations, quizStarted]);
+  }, [fetchQuiz, sendViolations]);
 
   const handleNextQuestion = useCallback(() => {
     setActiveQuestion((prev) => prev + 1);
@@ -131,14 +156,14 @@ const StudentsQuiz = () => {
       );
 
       await sendViolations();
-
       navigate(`/answers/${quizCode}`);
     } catch (err) {
       toast.error(err?.response?.data?.error || "❌ Failed to submit answers", {
         transition: Bounce,
       });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, [studentAnswers, quizCode, navigate, sendViolations, setIsLoading]);
 
   useEffect(() => {
@@ -150,37 +175,26 @@ const StudentsQuiz = () => {
 
   const startQuiz = () => {
     setQuizStarted(true);
-    document.documentElement.requestFullscreen().catch(() => {
+    document.documentElement.requestFullscreen?.().catch(() => {
       toast.warn("⚠️ Fullscreen mode failed.");
     });
   };
 
-  /** Anti-cheat detection */
+  /** Anti-cheat listeners */
   useEffect(() => {
     if (!quizStarted) return;
 
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        recordViolation("Exited fullscreen mode");
-      }
+      if (!document.fullscreenElement) recordViolation("Exited fullscreen");
     };
-
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        recordViolation("Changed tab or minimized");
-      }
+      if (document.visibilityState === "hidden")
+        recordViolation("Changed tab/minimized");
     };
-
-    const handleWindowBlur = () => {
-      recordViolation("Switched desktop window or tab");
-    };
-
-    const handleOffline = () => {
-      recordViolation("Internet disconnected during quiz");
-    };
-
+    const handleWindowBlur = () => recordViolation("Switched window/tab");
+    const handleOffline = () => recordViolation("Internet disconnected");
     const handleBeforeUnload = (e) => {
-      recordViolation("Browser closed or refreshed");
+      recordViolation("Browser closed/refreshed");
       e.preventDefault();
       e.returnValue = "";
     };
@@ -188,20 +202,18 @@ const StudentsQuiz = () => {
     window.addEventListener("offline", handleOffline);
     window.addEventListener("beforeunload", handleBeforeUnload);
     window.addEventListener("blur", handleWindowBlur);
-
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    /** Extra aggressive detection: focus polling */
     let lastFocus = document.hasFocus();
     const focusInterval = setInterval(() => {
       if (!document.hasFocus() && lastFocus) {
         lastFocus = false;
-        recordViolation("Lost focus to another window");
+        recordViolation("Lost focus");
       } else if (document.hasFocus()) {
         lastFocus = true;
       }
-    }, 100);
+    }, 150);
 
     return () => {
       window.removeEventListener("offline", handleOffline);
@@ -212,6 +224,19 @@ const StudentsQuiz = () => {
       clearInterval(focusInterval);
     };
   }, [quizStarted, recordViolation]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-pulse space-y-4 w-80">
+          <div className="h-6 bg-gray-300 rounded"></div>
+          <div className="h-4 bg-gray-300 rounded w-2/3"></div>
+          <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+          <div className="h-10 bg-indigo-400/50 rounded"></div>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -236,7 +261,7 @@ const StudentsQuiz = () => {
           <p>Time: {formatTime(quizMeta?.totalNeededTime)}</p>
           <button
             onClick={startQuiz}
-            className="bg-indigo-600 text-white px-4 py-2 mt-4 rounded hover:bg-indigo-700"
+            className="bg-indigo-600 text-white px-4 py-2 mt-4 rounded hover:bg-indigo-700 transition"
             disabled={!quizMeta}
           >
             Start Quiz
@@ -251,7 +276,7 @@ const StudentsQuiz = () => {
           setStudentAnswers={setStudentAnswers}
         />
       ) : (
-        <p>Loading...</p>
+        <p>Loading questions...</p>
       )}
     </div>
   );
